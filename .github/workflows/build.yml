@@ -8,6 +8,7 @@ on:
 jobs:
   docker:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -18,12 +19,8 @@ jobs:
           username: ${{ vars.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PAT }}
 
-      - name: Set up Docker Buildx (Docker Build Cloud)
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        with:
-          driver: cloud
-          # <docker-username>/<builder-name>
-          endpoint: "roxraccoon/runbuilder"
 
       - name: Build and push image
         uses: docker/build-push-action@v6
@@ -31,4 +28,5 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
+          platforms: linux/amd64
           tags: "${{ vars.DOCKER_USER }}/comfyui-sage-runpod-5090:latest"
