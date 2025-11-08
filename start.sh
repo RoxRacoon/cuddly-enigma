@@ -1,36 +1,78 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Activate venv
+# Activate Python virtual environment
 source /home/appuser/venv/bin/activate
 
-# Download models if requested
-/home/appuser/downloader.sh || true
+echo "[Init] Starting container setup..."
 
-# (Optional) Wire SageAttention as SDPA drop-in for PyTorch
+# -----------------------------------------------------------------------------
+# 1️⃣ Install SageAttention at runtime (GPU available on RunPod)
+# -----------------------------------------------------------------------------
+if [[ "${USE_SAGEATTN:-1}" == "1" ]]; then
+  echo "[SageAttention] Attempting runtime install..."
+  if pip install --no-cache-dir "sageattention==2.2.0"; then
+    echo "[SageAttention] Installed successfully."
+  else
+    echo "[SageAttention] Install failed (likely no CUDA). Continuing without it."
+  fi
+fi
+
+# -----------------------------------------------------------------------------
+# 2️⃣ Run downloader script (optional civitai model fetcher)
+# -----------------------------------------------------------------------------
+if [[ -x "/home/appuser/downloader.sh" ]]; then
+  echo "[Downloader] Running downloader.sh..."
+  /home/appuser/downloader.sh || echo "[Downloader] Skipped or failed."
+fi
+
+# -----------------------------------------------------------------------------
+# 3️⃣ Patch PyTorch SDPA to use SageAttention if available
+# -----------------------------------------------------------------------------
 if [[ "${USE_SAGEATTN:-1}" == "1" ]]; then
 python - <<'PY'
 import torch, torch.nn.functional as F
 try:
     from sageattention import sageattn
     F.scaled_dot_product_attention = sageattn
-    print("[SageAttention] Patched scaled_dot_product_attention OK")
+    print("[SageAttention] Successfully patched torch.nn.functional.scaled_dot_product_attention")
 except Exception as e:
-    print("[SageAttention] Patch skipped:", e)
+    print("[SageAttention] Not available:", e)
 PY
 fi
 
-# Launch services:
-# 1) CopyParty file manager/uploader on :3923
-copyparty --port 3923 ${COPY_PARTY_ARGS:-} "${COPY_PARTY_ROOT:-/home/appuser}" > /home/appuser/copyparty.log 2>&1 &
+# -----------------------------------------------------------------------------
+# 4️⃣ Launch CopyParty (web-based file manager)
+# -----------------------------------------------------------------------------
+echo "[CopyParty] Starting file manager on port 3923..."
+copyparty --port 3923 ${COPY_PARTY_ARGS:-} "${COPY_PARTY_ROOT:-/home/appuser}" \
+    > /home/appuser/copyparty.log 2>&1 &
 
-# 2) ttyd web terminal on :7681
+# -----------------------------------------------------------------------------
+# 5️⃣ Launch ttyd (web-based terminal)
+# -----------------------------------------------------------------------------
+echo "[ttyd] Starting terminal on port 7681..."
 ttyd -p 7681 /bin/bash > /home/appuser/ttyd.log 2>&1 &
 
-# 3) ComfyUI on :8188 (no browser)
+# -----------------------------------------------------------------------------
+# 6️⃣ Prepare ComfyUI model paths
+# -----------------------------------------------------------------------------
+echo "[ComfyUI] Preparing model directories..."
 cd /home/appuser/ComfyUI
-mkdir -p /home/appuser/ComfyUI/models/checkpoints /home/appuser/ComfyUI/models/loras
+
+mkdir -p /home/appuser/ComfyUI/models/checkpoints
+mkdir -p /home/appuser/ComfyUI/models/loras
+
 ln -sf "${CHECKPOINT_DIR:-/home/appuser/models/checkpoints}" /home/appuser/ComfyUI/models/checkpoints_ext
 ln -sf "${LORA_DIR:-/home/appuser/models/loras}" /home/appuser/ComfyUI/models/loras_ext
 
+# -----------------------------------------------------------------------------
+# 7️⃣ Launch ComfyUI server
+# -----------------------------------------------------------------------------
+echo "[ComfyUI] Starting ComfyUI on port 8188..."
 python main.py --listen 0.0.0.0 --port 8188 ${COMFY_EXTRA_ARGS:-}
+
+# -----------------------------------------------------------------------------
+# 8️⃣ Keep container alive
+# -----------------------------------------------------------------------------
+wait
