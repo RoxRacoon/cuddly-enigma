@@ -26,20 +26,20 @@ WORKDIR /opt
 RUN git clone --depth 1 https://github.com/tsl0922/ttyd.git && \
     cd ttyd && mkdir build && cd build && cmake .. && make -j"$(nproc)" && make install
 
-# Install CopyParty (file manager/uploader) into system Python
-RUN pip install --no-cache-dir copyparty
-
-# Create non-root runtime user
+# ----- everything below runs as non-root appuser -----
 RUN useradd -m -u 1000 appuser
 USER appuser
 WORKDIR /home/appuser
 
-# Python virtualenv for ComfyUI + PyTorch
+# Python virtualenv for everything (ComfyUI, PyTorch, CopyParty, SageAttention)
 RUN python -m venv /home/appuser/venv
 ENV PATH=/home/appuser/venv/bin:$PATH
 
 # Upgrade pip in venv
 RUN pip install --upgrade pip
+
+# Install CopyParty (file manager/uploader) into venv
+RUN pip install --no-cache-dir copyparty
 
 # Install PyTorch with CUDA 12.8 wheels (Blackwell-ready)
 RUN pip install --index-url https://download.pytorch.org/whl/cu128 \
