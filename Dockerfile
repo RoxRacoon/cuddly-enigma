@@ -53,12 +53,6 @@ RUN git clone --depth 1 https://github.com/comfyanonymous/ComfyUI.git && \
 # ComfyUI Manager (optional)
 RUN git clone --depth 1 https://github.com/ltdrdata/ComfyUI-Manager.git ComfyUI/custom_nodes/ComfyUI-Manager || true
 
-# Install SageAttention
-RUN (pip install --no-build-isolation "sageattention==2.2.0" || \
-    (git clone https://github.com/thu-ml/SageAttention.git && \
-     cd SageAttention && \
-     python setup.py install))
-
 # Expose ports
 EXPOSE 8188 7681 3923
 
