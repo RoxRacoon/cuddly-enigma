@@ -27,7 +27,8 @@ RUN git clone --depth 1 https://github.com/tsl0922/ttyd.git && \
     cd ttyd && mkdir build && cd build && cmake .. && make -j"$(nproc)" && make install
 
 # ----- everything below runs as non-root appuser -----
-RUN useradd -m -u 1000 appuser
+# Create appuser only if it doesn't already exist
+RUN id -u appuser >/dev/null 2>&1 || useradd -m appuser
 USER appuser
 WORKDIR /home/appuser
 
