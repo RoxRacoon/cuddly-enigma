@@ -6,6 +6,13 @@ source /home/appuser/venv/bin/activate
 
 echo "[Init] Starting container setup..."
 
+# Ensure PyTorch is present before doing anything that depends on it
+if ! python -c "import torch" >/dev/null 2>&1; then
+  echo "[Init] PyTorch not detected in venv. Installing CUDA 12.8 wheels..."
+  pip install --index-url https://download.pytorch.org/whl/cu128 \
+      torch torchvision torchaudio --extra-index-url https://pypi.org/simple
+fi
+
 # -----------------------------------------------------------------------------
 # 1️⃣ Install SageAttention at runtime (GPU available on RunPod)
 # -----------------------------------------------------------------------------
