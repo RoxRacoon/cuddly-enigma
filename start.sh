@@ -63,8 +63,8 @@ cd /home/appuser/ComfyUI
 mkdir -p /home/appuser/ComfyUI/models/checkpoints
 mkdir -p /home/appuser/ComfyUI/models/loras
 
-ln -sf "${CHECKPOINT_DIR:-/home/appuser/models/checkpoints}" /home/appuser/ComfyUI/models/checkpoints_ext
-ln -sf "${LORA_DIR:-/home/appuser/models/loras}" /home/appuser/ComfyUI/models/loras_ext
+ln -sf "${CHECKPOINT_DIR:-/home/appuser/ComfyUI/models/checkpoints}" /home/appuser/ComfyUI/models/checkpoints_ext
+ln -sf "${LORA_DIR:-/home/appuser/ComfyUI/models/loras}" /home/appuser/ComfyUI/models/loras_ext
 
 # -----------------------------------------------------------------------------
 # 7️⃣ Launch ComfyUI server

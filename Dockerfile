@@ -57,14 +57,17 @@ RUN git clone --depth 1 https://github.com/ltdrdata/ComfyUI-Manager.git ComfyUI/
 EXPOSE 8188 7681 3923
 
 # Runtime dirs
-RUN mkdir -p /home/appuser/models/checkpoints /home/appuser/models/loras /home/appuser/ComfyUI/user/default
+RUN mkdir -p \
+    /home/appuser/ComfyUI/models/checkpoints \
+    /home/appuser/ComfyUI/models/loras \
+    /home/appuser/ComfyUI/user/default
 
 # Environment knobs
 ENV CIVITAI_TOKEN="" \
     LORAS_IDS="" \
     LORAS_CHECKPOINTS="" \
-    CHECKPOINT_DIR="/home/appuser/models/checkpoints" \
-    LORA_DIR="/home/appuser/models/loras" \
+    CHECKPOINT_DIR="/home/appuser/ComfyUI/models/checkpoints" \
+    LORA_DIR="/home/appuser/ComfyUI/models/loras" \
     COMFY_EXTRA_ARGS="" \
     USE_SAGEATTN="1" \
     COPY_PARTY_ROOT="/home/appuser" \
