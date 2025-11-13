@@ -8,7 +8,7 @@ ckpts="${LORAS_CHECKPOINTS:-}"
 lora_dir="${LORA_DIR:-/home/appuser/models/loras}"
 ckpt_dir="${CHECKPOINT_DIR:-/home/appuser/models/checkpoints}"
 
-# New: explicit dirs for VAE, diffusion models, CLIP/T5 encoder
+# Explicit dirs for VAE, diffusion models, CLIP/T5 encoder
 vae_dir="${VAE_DIR:-/home/appuser/models/vae}"
 diffusion_models_dir="${DIFFUSION_MODELS_DIR:-/home/appuser/models/diffusion models}"
 clip_dir="${CLIP_DIR:-/home/appuser/models/clip}"
@@ -84,101 +84,48 @@ for item in "${CARR[@]}"; do
 done
 
 ############################################
-# Extra Lightning LoRAs into $lora_dir
+# Wan 2.2 – Comfy-Org repackaged assets
+#   Source: Comfy-Org/Wan_2.2_ComfyUI_Repackaged
 ############################################
-declare -A EXTRA_LORAS=(
-  ["Wan2.2-T2V-A14B-HIGH-4steps-lora-rank64-Seko-V1.1.safetensors"]="https://huggingface.co/lightx2v/Wan2.2-Lightning/resolve/main/Wan2.2-T2V-A14B-4steps-lora-rank64-Seko-V1.1/high_noise_model.safetensors"
-  ["Wan2.2-T2V-A14B-LOW-4steps-lora-rank64-Seko-V1.1.safetensors"]="https://huggingface.co/lightx2v/Wan2.2-Lightning/resolve/main/Wan2.2-T2V-A14B-4steps-lora-rank64-Seko-V1.1/low_noise_model.safetensors"
 
-  ["Wan2.2-I2V-A14B-HIGH-4steps-lora-rank64-Seko-V1.safetensors"]="https://huggingface.co/lightx2v/Wan2.2-Lightning/resolve/main/Wan2.2-I2V-A14B-4steps-lora-rank64-Seko-V1/high_noise_model.safetensors"
-  ["Wan2.2-I2V-A14B-LOW-4steps-lora-rank64-Seko-V1.safetensors"]="https://huggingface.co/lightx2v/Wan2.2-Lightning/resolve/main/Wan2.2-I2V-A14B-4steps-lora-rank64-Seko-V1/low_noise_model.safetensors"
+WAN_REPO_BASE="https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files"
 
-  ["Wan2.2-Lightning_I2V-A14B-4steps-lora_HIGH_fp16.safetensors"]="https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan22-Lightning/Wan2.2-Lightning_I2V-A14B-4steps-lora_HIGH_fp16.safetensors"
-  ["Wan2.2-Lightning_I2V-A14B-4steps-lora_LOW_fp16.safetensors"]="https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan22-Lightning/Wan2.2-Lightning_I2V-A14B-4steps-lora_LOW_fp16.safetensors"
+# VAE
+download_file \
+  "${WAN_REPO_BASE}/vae/wan_2.1_vae.safetensors" \
+  "${vae_dir}/wan_2.1_vae.safetensors" || true
+
+# Text encoder (T5/UMT5)
+download_file \
+  "${WAN_REPO_BASE}/text_encoders/umt5_xxl_fp16.safetensors" \
+  "${clip_dir}/umt5_xxl_fp16.safetensors" || true
+
+# Diffusion models (fp8 scaled)
+declare -A WAN_DIFFUSORS=(
+  ["wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors"]="${WAN_REPO_BASE}/diffusion_models/wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors"
+  ["wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors"]="${WAN_REPO_BASE}/diffusion_models/wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors"
+  ["wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors"]="${WAN_REPO_BASE}/diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors"
+  ["wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors"]="${WAN_REPO_BASE}/diffusion_models/wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors"
 )
 
-for fname in "${!EXTRA_LORAS[@]}"; do
-  url="${EXTRA_LORAS[$fname]}"
-  target="${lora_dir}/${fname}"
+for fname in "${!WAN_DIFFUSORS[@]}"; do
+  url="${WAN_DIFFUSORS[$fname]}"
+  target="${diffusion_models_dir}/${fname}"
   download_file "$url" "$target" || true
 done
 
-############################################
-# Extra Rapid AIO checkpoint into $ckpt_dir
-############################################
-extra_ckpt_url="https://huggingface.co/Phr00t/WAN2.2-14B-Rapid-AllInOne/resolve/main/Mega-v12/wan2.2-rapid-mega-aio-nsfw-v12.safetensors"
-extra_ckpt_fname="wan2.2-rapid-mega-aio-nsfw-v12.safetensors"
-extra_ckpt_target="${ckpt_dir}/${extra_ckpt_fname}"
-download_file "$extra_ckpt_url" "$extra_ckpt_target" || true
-
-############################################
-# Wan-AI Wan2.2 base models:
-# - VAE -> models/vae
-# - T5 encoder -> models/clip
-# - high/low diffusion models -> models/diffusion models
-############################################
-
-WAN_I2V_REPO="https://huggingface.co/Wan-AI/Wan2.2-I2V-A14B/resolve/main"
-WAN_T2V_REPO="https://huggingface.co/Wan-AI/Wan2.2-T2V-A14B/resolve/main"
-
-WAN_I2V_NAME="Wan2.2-I2V-A14B"
-WAN_T2V_NAME="Wan2.2-T2V-A14B"
-
-# Directories laid out inside your requested base folders
-WAN_I2V_VAE_DIR="${vae_dir}/${WAN_I2V_NAME}"
-WAN_T2V_VAE_DIR="${vae_dir}/${WAN_T2V_NAME}"
-
-WAN_I2V_CLIP_DIR="${clip_dir}/${WAN_I2V_NAME}"
-WAN_T2V_CLIP_DIR="${clip_dir}/${WAN_T2V_NAME}"
-
-WAN_I2V_DIFF_DIR="${diffusion_models_dir}/${WAN_I2V_NAME}"
-WAN_T2V_DIFF_DIR="${diffusion_models_dir}/${WAN_T2V_NAME}"
-
-mkdir -p "$WAN_I2V_VAE_DIR" "$WAN_T2V_VAE_DIR" \
-         "$WAN_I2V_CLIP_DIR" "$WAN_T2V_CLIP_DIR" \
-         "$WAN_I2V_DIFF_DIR"/{high_noise_model,low_noise_model} \
-         "$WAN_T2V_DIFF_DIR"/{high_noise_model,low_noise_model}
-
-# Filenames
-WAN_VAE_FILE="Wan2.1_VAE.pth"
-WAN_T5_FILE="models_t5_umt5-xxl-enc-bf16.pth"
-
-# I2V: VAE + T5
-download_file "${WAN_I2V_REPO}/${WAN_VAE_FILE}" \
-              "${WAN_I2V_VAE_DIR}/${WAN_VAE_FILE}" || true
-download_file "${WAN_I2V_REPO}/${WAN_T5_FILE}" \
-              "${WAN_I2V_CLIP_DIR}/${WAN_T5_FILE}" || true
-
-# T2V: VAE + T5
-download_file "${WAN_T2V_REPO}/${WAN_VAE_FILE}" \
-              "${WAN_T2V_VAE_DIR}/${WAN_VAE_FILE}" || true
-download_file "${WAN_T2V_REPO}/${WAN_T5_FILE}" \
-              "${WAN_T2V_CLIP_DIR}/${WAN_T5_FILE}" || true
-
-# High/low noise diffusion shards + index for both repos
-WAN_DIFF_FILES=(
-  "config.json"
-  "diffusion_pytorch_model-00001-of-00006.safetensors"
-  "diffusion_pytorch_model-00002-of-00006.safetensors"
-  "diffusion_pytorch_model-00003-of-00006.safetensors"
-  "diffusion_pytorch_model-00004-of-00006.safetensors"
-  "diffusion_pytorch_model-00005-of-00006.safetensors"
-  "diffusion_pytorch_model-00006-of-00006.safetensors"
-  "diffusion_pytorch_model.safetensors.index.json"
+# Wan 2.2 Lightning LoRAs (Comfy-Org versions)
+declare -A WAN_LORAS=(
+  ["wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors"]="${WAN_REPO_BASE}/loras/wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors"
+  ["wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors"]="${WAN_REPO_BASE}/loras/wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors"
+  ["wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors"]="${WAN_REPO_BASE}/loras/wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors"
+  ["wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors"]="${WAN_REPO_BASE}/loras/wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors"
 )
 
-for fname in "${WAN_DIFF_FILES[@]}"; do
-  # I2V high / low -> models/diffusion models/Wan2.2-I2V-A14B/...
-  download_file "${WAN_I2V_REPO}/high_noise_model/${fname}" \
-                "${WAN_I2V_DIFF_DIR}/high_noise_model/${fname}" || true
-  download_file "${WAN_I2V_REPO}/low_noise_model/${fname}" \
-                "${WAN_I2V_DIFF_DIR}/low_noise_model/${fname}" || true
-
-  # T2V high / low -> models/diffusion models/Wan2.2-T2V-A14B/...
-  download_file "${WAN_T2V_REPO}/high_noise_model/${fname}" \
-                "${WAN_T2V_DIFF_DIR}/high_noise_model/${fname}" || true
-  download_file "${WAN_T2V_REPO}/low_noise_model/${fname}" \
-                "${WAN_T2V_DIFF_DIR}/low_noise_model/${fname}" || true
+for fname in "${!WAN_LORAS[@]}"; do
+  url="${WAN_LORAS[$fname]}"
+  target="${lora_dir}/${fname}"
+  download_file "$url" "$target" || true
 done
 
 echo "Downloads complete."
