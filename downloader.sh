@@ -5,13 +5,16 @@ token="${CIVITAI_TOKEN:-}"
 loras="${LORAS_IDS:-}"
 ckpts="${LORAS_CHECKPOINTS:-}"
 
-lora_dir="${LORA_DIR:-/home/appuser/models/loras}"
-ckpt_dir="${CHECKPOINT_DIR:-/home/appuser/models/checkpoints}"
+LORA_DEFAULT="/home/appuser/ComfyUI/models/loras"
+CHECKPOINT_DEFAULT="/home/appuser/ComfyUI/models/checkpoints"
+
+lora_dir="${LORA_DIR:-${LORA_DEFAULT}}"
+ckpt_dir="${CHECKPOINT_DIR:-${CHECKPOINT_DEFAULT}}"
 
 # Explicit dirs for VAE, diffusion models, CLIP/T5 encoder
-vae_dir="${VAE_DIR:-/home/appuser/models/vae}"
-diffusion_models_dir="${DIFFUSION_MODELS_DIR:-/home/appuser/models/diffusion_models}"
-clip_dir="${CLIP_DIR:-/home/appuser/models/clip}"
+vae_dir="${VAE_DIR:-/home/appuser/ComfyUI/models/vae}"
+diffusion_models_dir="${DIFFUSION_MODELS_DIR:-/home/appuser/ComfyUI/models/diffusion_models}"
+clip_dir="${CLIP_DIR:-/home/appuser/ComfyUI/models/clip}"
 
 mkdir -p "$lora_dir" "$ckpt_dir" "$vae_dir" "$diffusion_models_dir" "$clip_dir"
 
