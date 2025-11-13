@@ -60,11 +60,20 @@ ttyd -p 7681 /bin/bash > /home/appuser/ttyd.log 2>&1 &
 echo "[ComfyUI] Preparing model directories..."
 cd /home/appuser/ComfyUI
 
+# Ensure default model directories exist (both for ComfyUI and shared storage)
 mkdir -p /home/appuser/ComfyUI/models/checkpoints
 mkdir -p /home/appuser/ComfyUI/models/loras
+mkdir -p /home/appuser/models/checkpoints
+mkdir -p /home/appuser/models/loras
+mkdir -p /home/appuser/models/vae
+mkdir -p /home/appuser/models/diffusion_model
+mkdir -p /home/appuser/models/clip
 
 ln -sf "${CHECKPOINT_DIR:-/home/appuser/models/checkpoints}" /home/appuser/ComfyUI/models/checkpoints_ext
 ln -sf "${LORA_DIR:-/home/appuser/models/loras}" /home/appuser/ComfyUI/models/loras_ext
+ln -sf "${VAE_DIR:-/home/appuser/models/vae}" /home/appuser/ComfyUI/models/vae_ext
+ln -sf "${DIFFUSION_MODELS_DIR:-/home/appuser/models/diffusion_model}" /home/appuser/ComfyUI/models/diffusion_models_ext
+ln -sf "${CLIP_DIR:-/home/appuser/models/clip}" /home/appuser/ComfyUI/models/clip_ext
 
 # -----------------------------------------------------------------------------
 # 7️⃣ Launch ComfyUI server

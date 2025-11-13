@@ -10,7 +10,7 @@ ckpt_dir="${CHECKPOINT_DIR:-/home/appuser/models/checkpoints}"
 
 # Explicit dirs for VAE, diffusion models, CLIP/T5 encoder
 vae_dir="${VAE_DIR:-/home/appuser/models/vae}"
-diffusion_models_dir="${DIFFUSION_MODELS_DIR:-/home/appuser/models/diffusion models}"
+diffusion_models_dir="${DIFFUSION_MODELS_DIR:-/home/appuser/models/diffusion_model}"
 clip_dir="${CLIP_DIR:-/home/appuser/models/clip}"
 
 mkdir -p "$lora_dir" "$ckpt_dir" "$vae_dir" "$diffusion_models_dir" "$clip_dir"
