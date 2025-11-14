@@ -47,17 +47,43 @@ fi
 # -----------------------------------------------------------------------------
 if [[ "${USE_SAGEATTN:-1}" == "1" ]]; then
   echo "[SageAttention] Attempting runtime install..."
-  # SageAttention's build process imports torch in setup.py, which fails under pip's
-  # default isolated build environment because torch isn't present there. Tell pip to
-  # reuse the current environment (where torch has already been installed) so the
-  # build can succeed.
-  # Explicitly disable pip's isolated build env so sageattention's setup.py can
-  # import torch that we just installed above. The environment variable alone
-  # is not always honored on some older pip builds, so pass the CLI flag too.
-  if PIP_NO_BUILD_ISOLATION=1 python -m pip install --no-build-isolation --no-cache-dir "sageattention==2.2.0"; then
-    echo "[SageAttention] Installed successfully."
+  if python - <<'PY' >/dev/null 2>&1; then
+import torch
+if not torch.cuda.is_available():
+    raise SystemExit(1)
+PY
+  then
+    if [[ -z "${CUDA_HOME:-}" ]]; then
+      CUDA_HOME_FROM_TORCH=$(python - <<'PY'
+import os
+from torch.utils.cpp_extension import CUDA_HOME
+
+if CUDA_HOME:
+    print(os.path.realpath(CUDA_HOME))
+PY
+)
+      if [[ -n "${CUDA_HOME_FROM_TORCH}" ]]; then
+        export CUDA_HOME="${CUDA_HOME_FROM_TORCH}"
+        export CUDA_PATH="${CUDA_PATH:-${CUDA_HOME_FROM_TORCH}}"
+        echo "[SageAttention] Using CUDA toolkit from ${CUDA_HOME_FROM_TORCH}"
+      else
+        echo "[SageAttention] WARNING: Unable to infer CUDA toolkit path; build may fail."
+      fi
+    fi
+    # SageAttention's build process imports torch in setup.py, which fails under pip's
+    # default isolated build environment because torch isn't present there. Tell pip to
+    # reuse the current environment (where torch has already been installed) so the
+    # build can succeed.
+    # Explicitly disable pip's isolated build env so sageattention's setup.py can
+    # import torch that we just installed above. The environment variable alone
+    # is not always honored on some older pip builds, so pass the CLI flag too.
+    if PIP_NO_BUILD_ISOLATION=1 python -m pip install --no-build-isolation --no-cache-dir "sageattention==2.2.0"; then
+      echo "[SageAttention] Installed successfully."
+    else
+      echo "[SageAttention] Install failed (likely missing CUDA toolkit). Continuing without it."
+    fi
   else
-    echo "[SageAttention] Install failed (likely no CUDA). Continuing without it."
+    echo "[SageAttention] CUDA not detected; skipping install."
   fi
 fi
 
