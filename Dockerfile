@@ -93,5 +93,5 @@ RUN chmod +x /home/appuser/downloader.sh
 COPY --chown=appuser:appuser start.sh /home/appuser/start.sh
 RUN chmod +x /home/appuser/start.sh
 
-ENTRYPOINT ["/usr/bin/tini", "--"]
+ENTRYPOINT ["/usr/bin/tini", "-s", "--"]
 CMD ["/home/appuser/start.sh"]
