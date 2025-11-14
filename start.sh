@@ -184,7 +184,22 @@ if [[ -x "/home/appuser/downloader.sh" ]]; then
 fi
 
 # -----------------------------------------------------------------------------
-# 3️⃣ Patch PyTorch SDPA to use SageAttention if available
+# 3️⃣ Ensure ComfyUI-SageAttention3 custom node is installed
+# -----------------------------------------------------------------------------
+if [[ "${INSTALL_SAGEATTN_NODE:-1}" == "1" ]]; then
+  NODE_DIR="${SAGEATTN_NODE_DIR:-/home/appuser/ComfyUI/custom_nodes/ComfyUI-SageAttention3}"
+  NODE_REPO="${SAGEATTN_NODE_REPO:-https://github.com/wallen0322/ComfyUI-SageAttention3.git}"
+  if [[ ! -d "${NODE_DIR}/.git" ]]; then
+    echo "[CustomNode] Installing ComfyUI-SageAttention3 into ${NODE_DIR}..."
+    git clone --depth 1 "${NODE_REPO}" "${NODE_DIR}" || echo "[CustomNode] WARNING: Failed to clone ${NODE_REPO}."
+  else
+    echo "[CustomNode] Updating ComfyUI-SageAttention3 in ${NODE_DIR}..."
+    git -C "${NODE_DIR}" pull --ff-only || echo "[CustomNode] WARNING: Failed to update ${NODE_DIR}."
+  fi
+fi
+
+# -----------------------------------------------------------------------------
+# 4️⃣ Patch PyTorch SDPA to use SageAttention if available
 # -----------------------------------------------------------------------------
 if [[ "${USE_SAGEATTN:-1}" == "1" ]]; then
 python - <<'PY'
@@ -201,20 +216,37 @@ for candidate in ("sageattn3", "sageattention"):
     if candidate not in order:
         order.append(candidate)
 
+original_sdpa = F.scaled_dot_product_attention
 last_exc = None
 patched = False
+
+def make_wrapper(impl, label, head_dim_limit=None):
+    def wrapper(query, key, value, *args, **kwargs):
+        try:
+            if head_dim_limit is not None and query is not None:
+                head_dim = getattr(query, "shape", [None])[-1]
+                if head_dim is not None and head_dim >= head_dim_limit:
+                    return original_sdpa(query, key, value, *args, **kwargs)
+            return impl(query, key, value, *args, **kwargs)
+        except Exception as exc:
+            print(f"[SageAttention] {label} call failed; falling back to torch SDPA: {exc}")
+            return original_sdpa(query, key, value, *args, **kwargs)
+    return wrapper
+
 for candidate in order:
     try:
         if candidate == "sageattn3":
             from sageattn3 import sageattn3_blackwell as _sageattn
             label = "SageAttention3"
+            head_limit = 256
         else:
             from sageattention import sageattn as _sageattn
             label = "SageAttention"
+            head_limit = None
     except Exception as exc:  # pragma: no cover - best-effort logging
         last_exc = exc
         continue
-    F.scaled_dot_product_attention = _sageattn
+    F.scaled_dot_product_attention = make_wrapper(_sageattn, label, head_dim_limit=head_limit)
     print(f"[SageAttention] Successfully patched torch.nn.functional.scaled_dot_product_attention with {label}")
     patched = True
     break
@@ -226,20 +258,20 @@ PY
 fi
 
 # -----------------------------------------------------------------------------
-# 4️⃣ Launch CopyParty (web-based file manager)
+# 5️⃣ Launch CopyParty (web-based file manager)
 # -----------------------------------------------------------------------------
 echo "[CopyParty] Starting file manager on port 3923..."
 copyparty --port 3923 ${COPY_PARTY_ARGS:-} "${COPY_PARTY_ROOT:-/home/appuser}" \
     > /home/appuser/copyparty.log 2>&1 &
 
 # -----------------------------------------------------------------------------
-# 5️⃣ Launch ttyd (web-based terminal)
+# 6️⃣ Launch ttyd (web-based terminal)
 # -----------------------------------------------------------------------------
 echo "[ttyd] Starting terminal on port 7681..."
 ttyd -p 7681 /bin/bash > /home/appuser/ttyd.log 2>&1 &
 
 # -----------------------------------------------------------------------------
-# 6️⃣ Prepare ComfyUI model paths
+# 7️⃣ Prepare ComfyUI model paths
 # -----------------------------------------------------------------------------
 echo "[ComfyUI] Preparing model directories..."
 cd /home/appuser/ComfyUI
@@ -248,12 +280,12 @@ ln -sf "${CHECKPOINT_DIR:-/home/appuser/ComfyUI/models/checkpoints}" /home/appus
 ln -sf "${LORA_DIR:-/home/appuser/ComfyUI/models/loras}" /home/appuser/ComfyUI/models/loras_ext
 
 # -----------------------------------------------------------------------------
-# 7️⃣ Launch ComfyUI server
+# 8️⃣ Launch ComfyUI server
 # -----------------------------------------------------------------------------
 echo "[ComfyUI] Starting ComfyUI on port 8188..."
 python main.py --listen 0.0.0.0 --port 8188 ${COMFY_EXTRA_ARGS:-}
 
 # -----------------------------------------------------------------------------
-# 8️⃣ Keep container alive
+# 9️⃣ Keep container alive
 # -----------------------------------------------------------------------------
 wait
