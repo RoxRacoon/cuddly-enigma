@@ -51,7 +51,6 @@ if [[ "${SKIP_CUDA_WAIT:-0}" == "1" ]]; then
 import torch
 torch.cuda.current_device()
 PY
-  then
     CUDA_READY=1
   fi
 else
@@ -63,7 +62,6 @@ if torch.cuda.is_available():
     raise SystemExit(0)
 raise SystemExit(1)
 PY
-    then
       CUDA_READY=1
       break
     fi
