@@ -18,7 +18,11 @@ fi
 # -----------------------------------------------------------------------------
 if [[ "${USE_SAGEATTN:-1}" == "1" ]]; then
   echo "[SageAttention] Attempting runtime install..."
-  if pip install "sageattention==2.2.0"; then
+  # SageAttention's build process imports torch in setup.py, which fails under pip's
+  # default isolated build environment because torch isn't present there. Tell pip to
+  # reuse the current environment (where torch has already been installed) so the
+  # build can succeed.
+  if PIP_NO_BUILD_ISOLATION=1 pip install "sageattention==2.2.0"; then
     echo "[SageAttention] Installed successfully."
   else
     echo "[SageAttention] Install failed (likely no CUDA). Continuing without it."
