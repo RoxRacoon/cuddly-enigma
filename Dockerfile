@@ -16,6 +16,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     cmake libjson-c-dev libwebsockets-dev zlib1g-dev \
  && rm -rf /var/lib/apt/lists/*
 
+# Install CUDA toolkit (for building SageAttention and other extensions).
+# Default to CUDA 12.8 (Blackwell-ready), but allow overriding at build time
+# so RunPod users can match their chosen runtime image (e.g., 12.9).
+ARG CUDA_TOOLKIT_PKG="cuda-toolkit-12-8"
+RUN wget -qO /tmp/cuda-keyring.deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb \
+ && dpkg -i /tmp/cuda-keyring.deb \
+ && rm /tmp/cuda-keyring.deb \
+ && wget -qO /etc/apt/preferences.d/cuda-repository-pin-600 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-ubuntu2404.pin \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends ${CUDA_TOOLKIT_PKG} \
+ && rm -rf /var/lib/apt/lists/*
+
+ENV CUDA_HOME=/usr/local/cuda \
+    PATH=/usr/local/cuda/bin:$PATH \
+    LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+
 # Build and install ttyd (web terminal)
 WORKDIR /opt
 RUN git clone --depth 1 https://github.com/tsl0922/ttyd.git && \
@@ -37,8 +53,10 @@ RUN pip install --upgrade pip
 # Install CopyParty (file manager/uploader) into venv
 RUN pip install copyparty
 
-# Install PyTorch with CUDA 12.8 wheels (Blackwell-ready)
-RUN pip install --index-url https://download.pytorch.org/whl/cu128 \
+# Install PyTorch CUDA wheels (default cu128 for Blackwell, override via build arg)
+ARG PYTORCH_CUDA_CHANNEL="cu128"
+ENV PYTORCH_CUDA_CHANNEL=${PYTORCH_CUDA_CHANNEL}
+RUN pip install --index-url https://download.pytorch.org/whl/${PYTORCH_CUDA_CHANNEL} \
       torch torchvision torchaudio --extra-index-url https://pypi.org/simple
 
 # Install ComfyUI

@@ -37,8 +37,9 @@ echo "[Init] Starting container setup..."
 
 # Ensure PyTorch is present before doing anything that depends on it
 if ! python -c "import torch" >/dev/null 2>&1; then
-  echo "[Init] PyTorch not detected in venv. Installing CUDA 12.8 wheels..."
-  pip install --index-url https://download.pytorch.org/whl/cu128 \
+  TORCH_CUDA_CHANNEL="${PYTORCH_CUDA_CHANNEL:-cu128}"
+  echo "[Init] PyTorch not detected in venv. Installing ${TORCH_CUDA_CHANNEL} wheels..."
+  pip install --index-url "https://download.pytorch.org/whl/${TORCH_CUDA_CHANNEL}" \
       torch torchvision torchaudio --extra-index-url https://pypi.org/simple
 fi
 
