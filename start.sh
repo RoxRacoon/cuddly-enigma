@@ -77,7 +77,7 @@ else
 fi
 
 # -----------------------------------------------------------------------------
-# 1️⃣ Install SageAttention at runtime (GPU available on RunPod)
+# 1️⃣ Install SageAttention at runtime (prefers SageAttention3, falls back to 2.x)
 # -----------------------------------------------------------------------------
 if [[ "${USE_SAGEATTN:-1}" == "1" ]]; then
   echo "[SageAttention] Attempting runtime install..."
@@ -99,17 +99,76 @@ PY
         echo "[SageAttention] WARNING: Unable to infer CUDA toolkit path; build may fail."
       fi
     fi
-    # SageAttention's build process imports torch in setup.py, which fails under pip's
-    # default isolated build environment because torch isn't present there. Tell pip to
-    # reuse the current environment (where torch has already been installed) so the
-    # build can succeed.
-    # Explicitly disable pip's isolated build env so sageattention's setup.py can
-    # import torch that we just installed above. The environment variable alone
-    # is not always honored on some older pip builds, so pass the CLI flag too.
-    if PIP_NO_BUILD_ISOLATION=1 python -m pip install --no-build-isolation --no-cache-dir "sageattention>=3,<4"; then
-      echo "[SageAttention] Installed successfully."
+    attempt_sageattn_install() {
+      local spec="$1"
+      local desc="$2"
+      local impl="${3:-}"
+      echo "[SageAttention] Installing ${desc}..."
+      if PIP_NO_BUILD_ISOLATION=1 python -m pip install --no-build-isolation --no-cache-dir "$spec"; then
+        echo "[SageAttention] Installed ${desc}."
+        if [[ -n "${impl}" ]]; then
+          export SAGEATTN_IMPL="${impl}"
+        fi
+        return 0
+      fi
+      echo "[SageAttention] ${desc} installation failed."
+      return 1
+    }
+    if [[ -n "${SAGEATTN_IMPL:-}" ]]; then
+      unset SAGEATTN_IMPL
+    fi
+    SAGEATTN_FLAVOR="${SAGEATTN_FLAVOR:-3}"
+    SAGEATTN_FALLBACK_TO_V2="${SAGEATTN_FALLBACK_TO_V2:-1}"
+    SAGEATTN_CUSTOM_SPEC="${SAGEATTN_PIP_SPEC:-}"
+    SAGEATTN_INSTALL_ORDER=()
+    if [[ -n "${SAGEATTN_CUSTOM_SPEC}" ]]; then
+      SAGEATTN_INSTALL_ORDER+=("custom")
     else
-      echo "[SageAttention] Install failed (likely missing CUDA toolkit). Continuing without it."
+      case "${SAGEATTN_FLAVOR}" in
+        3)
+          SAGEATTN_INSTALL_ORDER+=("3")
+          if [[ "${SAGEATTN_FALLBACK_TO_V2}" == "1" ]]; then
+            SAGEATTN_INSTALL_ORDER+=("2")
+          fi
+          ;;
+        2)
+          SAGEATTN_INSTALL_ORDER+=("2")
+          ;;
+        *)
+          SAGEATTN_CUSTOM_SPEC="${SAGEATTN_FLAVOR}"
+          SAGEATTN_INSTALL_ORDER+=("custom")
+          ;;
+      esac
+    fi
+    SAGEATTN_INSTALL_SUCCEEDED=0
+    for target in "${SAGEATTN_INSTALL_ORDER[@]}"; do
+      case "${target}" in
+        3)
+          SAGEATTN_GIT_URL="${SAGEATTN_GIT_URL:-https://github.com/thu-ml/SageAttention.git}"
+          SAGEATTN_GIT_REF="${SAGEATTN_GIT_REF:-main}"
+          SAGEATTN_GIT_SUBDIR="${SAGEATTN_GIT_SUBDIR:-sageattention3_blackwell}"
+          SAGEATTN_SPEC="sageattn3 @ git+${SAGEATTN_GIT_URL}@${SAGEATTN_GIT_REF}#subdirectory=${SAGEATTN_GIT_SUBDIR}"
+          if attempt_sageattn_install "${SAGEATTN_SPEC}" "SageAttention3 (${SAGEATTN_GIT_REF})" "sageattn3"; then
+            SAGEATTN_INSTALL_SUCCEEDED=1
+            break
+          fi
+          ;;
+        2)
+          if attempt_sageattn_install "sageattention>=2.2,<3" "SageAttention2.x (PyPI)" "sageattention"; then
+            SAGEATTN_INSTALL_SUCCEEDED=1
+            break
+          fi
+          ;;
+        custom)
+          if attempt_sageattn_install "${SAGEATTN_CUSTOM_SPEC}" "custom SageAttention spec" ""; then
+            SAGEATTN_INSTALL_SUCCEEDED=1
+            break
+          fi
+          ;;
+      esac
+    done
+    if [[ "${SAGEATTN_INSTALL_SUCCEEDED}" != "1" ]]; then
+      echo "[SageAttention] Install failed (check CUDA toolkit / dependencies). Continuing without it."
     fi
   else
     echo "[SageAttention] CUDA not detected; skipping install."
@@ -129,13 +188,40 @@ fi
 # -----------------------------------------------------------------------------
 if [[ "${USE_SAGEATTN:-1}" == "1" ]]; then
 python - <<'PY'
-import torch, torch.nn.functional as F
-try:
-    from sageattention import sageattn
-    F.scaled_dot_product_attention = sageattn
-    print("[SageAttention] Successfully patched torch.nn.functional.scaled_dot_product_attention")
-except Exception as e:
-    print("[SageAttention] Not available:", e)
+import os
+import torch.nn.functional as F
+
+preferred = os.environ.get("SAGEATTN_IMPL")
+order = []
+if preferred == "sageattn3":
+    order.append("sageattn3")
+elif preferred == "sageattention":
+    order.append("sageattention")
+for candidate in ("sageattn3", "sageattention"):
+    if candidate not in order:
+        order.append(candidate)
+
+last_exc = None
+patched = False
+for candidate in order:
+    try:
+        if candidate == "sageattn3":
+            from sageattn3 import sageattn3_blackwell as _sageattn
+            label = "SageAttention3"
+        else:
+            from sageattention import sageattn as _sageattn
+            label = "SageAttention"
+    except Exception as exc:  # pragma: no cover - best-effort logging
+        last_exc = exc
+        continue
+    F.scaled_dot_product_attention = _sageattn
+    print(f"[SageAttention] Successfully patched torch.nn.functional.scaled_dot_product_attention with {label}")
+    patched = True
+    break
+
+if not patched:
+    detail = f" {last_exc}" if last_exc else ""
+    print(f"[SageAttention] Not available.{detail}")
 PY
 fi
 
