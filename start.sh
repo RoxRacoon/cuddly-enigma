@@ -77,7 +77,7 @@ PY
     # Explicitly disable pip's isolated build env so sageattention's setup.py can
     # import torch that we just installed above. The environment variable alone
     # is not always honored on some older pip builds, so pass the CLI flag too.
-    if PIP_NO_BUILD_ISOLATION=1 python -m pip install --no-build-isolation --no-cache-dir "sageattention==2.2.0"; then
+    if PIP_NO_BUILD_ISOLATION=1 python -m pip install --no-build-isolation --no-cache-dir "sageattention>=3,<4"; then
       echo "[SageAttention] Installed successfully."
     else
       echo "[SageAttention] Install failed (likely missing CUDA toolkit). Continuing without it."

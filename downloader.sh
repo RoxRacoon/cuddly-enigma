@@ -25,8 +25,60 @@ download_mv() {
     echo "CIVITAI_TOKEN not set; skipping modelVersionId ${mv_id}" >&2
     return 0
   fi
-  echo "Downloading Civitai modelVersionId=${mv_id} -> ${out_dir}"
+
   mkdir -p "$out_dir"
+
+  # Try to discover the filename up front via a HEAD request so we can skip
+  # downloading the same LoRA multiple times (Civitai returns a unique
+  # Content-Disposition header for each modelVersionId).
+  local head_tmp filename="" dest=""
+  head_tmp="$(mktemp)"
+  if curl -fsSLI \
+      -H "Authorization: Bearer ${token}" \
+      "https://civitai.com/api/download/models/${mv_id}" \
+      -o /dev/null -D "$head_tmp"; then
+    filename="$(python - <<'PY' "$head_tmp"
+import re
+import sys
+from email.parser import Parser
+from urllib.parse import unquote
+
+path = sys.argv[1]
+with open(path, 'rb') as fh:
+    raw = fh.read().decode('utf-8', 'ignore')
+
+sections = [s for s in raw.split('\r\n\r\n') if s.strip()]
+headers = Parser().parsestr(sections[-1]) if sections else None
+filename = ''
+if headers:
+    cd = headers.get('Content-Disposition', '')
+    if cd:
+        match_star = re.search(r'filename\*=([^;]+)', cd, re.IGNORECASE)
+        if match_star:
+            value = match_star.group(1).strip().strip('"')
+            if value.lower().startswith("utf-8''"):
+                value = unquote(value[7:])
+            filename = value
+        if not filename:
+            match = re.search(r'filename="?([^";]+)"?', cd, re.IGNORECASE)
+            if match:
+                filename = match.group(1).strip()
+if filename:
+    print(filename)
+PY
+)"
+    if [[ -n "$filename" ]]; then
+      dest="${out_dir}/${filename}"
+      if [[ -f "$dest" ]]; then
+        echo "Civitai modelVersionId=${mv_id} already downloaded (${filename}); skipping."
+        rm -f "$head_tmp"
+        return 0
+      fi
+    fi
+  fi
+  rm -f "$head_tmp"
+
+  echo "Downloading Civitai modelVersionId=${mv_id} -> ${out_dir}"
   if ! (
     cd "$out_dir" && \
     curl -fL \
