@@ -45,16 +45,15 @@ fi
 # -----------------------------------------------------------------------------
 # 1️⃣ Install SageAttention at runtime (GPU available on RunPod)
 # -----------------------------------------------------------------------------
-if [[ "${USE_SAGEATTN:-1}" == "1" ]]; then
-  echo "[SageAttention] Attempting runtime install..."
-  if python - <<'PY' >/dev/null 2>&1; then
+  if [[ "${USE_SAGEATTN:-1}" == "1" ]]; then
+    echo "[SageAttention] Attempting runtime install..."
+    if python - <<'PY' >/dev/null 2>&1; then
 import torch
 if not torch.cuda.is_available():
     raise SystemExit(1)
 PY
-  then
-    if [[ -z "${CUDA_HOME:-}" ]]; then
-      CUDA_HOME_FROM_TORCH=$(python - <<'PY'
+      if [[ -z "${CUDA_HOME:-}" ]]; then
+        CUDA_HOME_FROM_TORCH=$(python - <<'PY'
 import os
 from torch.utils.cpp_extension import CUDA_HOME
 
