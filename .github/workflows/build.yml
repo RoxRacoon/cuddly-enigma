@@ -13,6 +13,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Free disk space
+        run: |
+          echo "Disk space before cleanup"
+          df -h
+          sudo rm -rf /opt/hostedtoolcache/*
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /usr/share/dotnet
+          sudo docker image prune -af || true
+          echo "Disk space after cleanup"
+          df -h
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
