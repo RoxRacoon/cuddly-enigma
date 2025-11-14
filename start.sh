@@ -43,18 +43,49 @@ if ! python -c "import torch" >/dev/null 2>&1; then
       torch torchvision torchaudio --extra-index-url https://pypi.org/simple
 fi
 
+CUDA_READY=0
+CUDA_WAIT_ATTEMPTS=${CUDA_WAIT_ATTEMPTS:-30}
+CUDA_WAIT_DELAY=${CUDA_WAIT_DELAY:-2}
+if [[ "${SKIP_CUDA_WAIT:-0}" == "1" ]]; then
+  if python - <<'PY' >/dev/null 2>&1; then
+import torch
+torch.cuda.current_device()
+PY
+  then
+    CUDA_READY=1
+  fi
+else
+  for ((attempt = 1; attempt <= CUDA_WAIT_ATTEMPTS; attempt++)); do
+    if python - <<'PY' >/dev/null 2>&1; then
+import torch
+if torch.cuda.is_available():
+    torch.cuda.current_device()
+    raise SystemExit(0)
+raise SystemExit(1)
+PY
+    then
+      CUDA_READY=1
+      break
+    fi
+    echo "[Init] CUDA not ready yet (${attempt}/${CUDA_WAIT_ATTEMPTS}); retrying in ${CUDA_WAIT_DELAY}s..."
+    sleep "${CUDA_WAIT_DELAY}"
+  done
+fi
+
+if [[ "${CUDA_READY}" == "1" ]]; then
+  echo "[Init] CUDA detected and ready."
+else
+  echo "[Init] WARNING: CUDA could not be initialized. Continuing without it; ComfyUI may run on CPU or fail if it requires a GPU."
+fi
+
 # -----------------------------------------------------------------------------
 # 1️⃣ Install SageAttention at runtime (GPU available on RunPod)
 # -----------------------------------------------------------------------------
-  if [[ "${USE_SAGEATTN:-1}" == "1" ]]; then
-    echo "[SageAttention] Attempting runtime install..."
-    if python - <<'PY' >/dev/null 2>&1; then
-import torch
-if not torch.cuda.is_available():
-    raise SystemExit(1)
-PY
-      if [[ -z "${CUDA_HOME:-}" ]]; then
-        CUDA_HOME_FROM_TORCH=$(python - <<'PY'
+if [[ "${USE_SAGEATTN:-1}" == "1" ]]; then
+  echo "[SageAttention] Attempting runtime install..."
+  if [[ "${CUDA_READY}" == "1" ]]; then
+    if [[ -z "${CUDA_HOME:-}" ]]; then
+      CUDA_HOME_FROM_TORCH=$(python - <<'PY'
 import os
 from torch.utils.cpp_extension import CUDA_HOME
 
