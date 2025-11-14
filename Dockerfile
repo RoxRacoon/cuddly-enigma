@@ -4,7 +4,6 @@ FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1 \
     PYTHONUNBUFFERED=1 \
-    UV_LOCALE=C.UTF-8 \
     LANG=C.UTF-8
 
 # System deps
@@ -16,10 +15,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tini unzip p7zip-full \
     cmake libjson-c-dev libwebsockets-dev zlib1g-dev \
  && rm -rf /var/lib/apt/lists/*
-
-# Make `python` and `pip` point to Python 3
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1 && \
-    update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
 
 # Build and install ttyd (web terminal)
 WORKDIR /opt
@@ -33,14 +28,14 @@ USER appuser
 WORKDIR /home/appuser
 
 # Python virtualenv for everything (ComfyUI, PyTorch, CopyParty, SageAttention)
-RUN python -m venv /home/appuser/venv
+RUN python3 -m venv /home/appuser/venv
 ENV PATH=/home/appuser/venv/bin:$PATH
 
 # Upgrade pip in venv
 RUN pip install --upgrade pip
 
 # Install CopyParty (file manager/uploader) into venv
-RUN pip install --no-cache-dir copyparty
+RUN pip install copyparty
 
 # Install PyTorch with CUDA 12.8 wheels (Blackwell-ready)
 RUN pip install --index-url https://download.pytorch.org/whl/cu128 \
@@ -48,7 +43,7 @@ RUN pip install --index-url https://download.pytorch.org/whl/cu128 \
 
 # Install ComfyUI
 RUN git clone --depth 1 https://github.com/comfyanonymous/ComfyUI.git && \
-    pip install --no-cache-dir -r ComfyUI/requirements.txt
+    pip install -r ComfyUI/requirements.txt
 
 # ComfyUI Manager (optional)
 RUN git clone --depth 1 https://github.com/ltdrdata/ComfyUI-Manager.git ComfyUI/custom_nodes/ComfyUI-Manager || true

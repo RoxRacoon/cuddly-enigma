@@ -18,7 +18,7 @@ fi
 # -----------------------------------------------------------------------------
 if [[ "${USE_SAGEATTN:-1}" == "1" ]]; then
   echo "[SageAttention] Attempting runtime install..."
-  if pip install --no-cache-dir "sageattention==2.2.0"; then
+  if pip install "sageattention==2.2.0"; then
     echo "[SageAttention] Installed successfully."
   else
     echo "[SageAttention] Install failed (likely no CUDA). Continuing without it."
@@ -66,9 +66,6 @@ ttyd -p 7681 /bin/bash > /home/appuser/ttyd.log 2>&1 &
 # -----------------------------------------------------------------------------
 echo "[ComfyUI] Preparing model directories..."
 cd /home/appuser/ComfyUI
-
-mkdir -p /home/appuser/ComfyUI/models/checkpoints
-mkdir -p /home/appuser/ComfyUI/models/loras
 
 ln -sf "${CHECKPOINT_DIR:-/home/appuser/ComfyUI/models/checkpoints}" /home/appuser/ComfyUI/models/checkpoints_ext
 ln -sf "${LORA_DIR:-/home/appuser/ComfyUI/models/loras}" /home/appuser/ComfyUI/models/loras_ext

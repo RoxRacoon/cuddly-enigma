@@ -26,15 +26,17 @@ download_mv() {
     return 0
   fi
   echo "Downloading Civitai modelVersionId=${mv_id} -> ${out_dir}"
-  curl -fL \
-    -H "Authorization: Bearer ${token}" \
-    "https://civitai.com/api/download/models/${mv_id}" \
-    --output /tmp/tmpfile --write-out "%{filename_effective}\n" || {
-      echo "Failed mv ${mv_id}" >&2; return 1;
-    }
-  fname="$(curl -sI -H "Authorization: Bearer ${token}" "https://civitai.com/api/download/models/${mv_id}" | awk -F\" '/filename=/ {print $2; exit}')"
-  if [[ -z "$fname" ]]; then fname="${mv_id}.safetensors"; fi
-  mv /tmp/tmpfile "${out_dir}/${fname}"
+  mkdir -p "$out_dir"
+  if ! (
+    cd "$out_dir" && \
+    curl -fL \
+      -H "Authorization: Bearer ${token}" \
+      --remote-header-name --remote-name \
+      "https://civitai.com/api/download/models/${mv_id}"
+  ); then
+    echo "Failed mv ${mv_id}" >&2
+    return 1
+  fi
 }
 
 download_file() {
