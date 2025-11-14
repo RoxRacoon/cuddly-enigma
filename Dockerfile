@@ -28,7 +28,7 @@ USER appuser
 WORKDIR /home/appuser
 
 # Python virtualenv for everything (ComfyUI, PyTorch, CopyParty, SageAttention)
-RUN python -m venv /home/appuser/venv
+RUN python3 -m venv /home/appuser/venv
 ENV PATH=/home/appuser/venv/bin:$PATH
 
 # Upgrade pip in venv
