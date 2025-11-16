@@ -109,6 +109,28 @@ download_file() {
   fi
 }
 
+# Wan LoRAs are provided by the Comfy-Org repackaged release and should
+# always be fetched to ensure users have the curated weights. They bypass the
+# generic download helper so they are unaffected by user-provided environment
+# overrides.
+download_wan_lora() {
+  local url="$1"
+  local dest="$2"
+  local tmp="${dest}.tmp"
+
+  mkdir -p "$(dirname "$dest")"
+  rm -f "$tmp"
+
+  echo "Force-downloading Wan2.2 LoRA $url -> $dest"
+  if curl -fL "$url" -o "$tmp"; then
+    mv "$tmp" "$dest"
+  else
+    echo "Failed to download Wan2.2 LoRA from $url" >&2
+    rm -f "$tmp"
+    return 1
+  fi
+}
+
 ################################
 # Civitai LoRAs (by mv_id)
 ################################
@@ -172,17 +194,17 @@ for fname in "${!WAN_DIFFUSORS[@]}"; do
 done
 
 # Wan 2.2 Lightning LoRAs (Comfy-Org versions)
-declare -A WAN_LORAS=(
-  ["wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors"]="${WAN_REPO_BASE}/loras/wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors"
-  ["wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors"]="${WAN_REPO_BASE}/loras/wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors"
-  ["wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors"]="${WAN_REPO_BASE}/loras/wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors"
-  ["wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors"]="${WAN_REPO_BASE}/loras/wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors"
+WAN_LORAS=(
+  "wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors"
+  "wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors"
+  "wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors"
+  "wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors"
 )
 
-for fname in "${!WAN_LORAS[@]}"; do
-  url="${WAN_LORAS[$fname]}"
+for fname in "${WAN_LORAS[@]}"; do
+  url="${WAN_REPO_BASE}/loras/${fname}"
   target="${lora_dir}/${fname}"
-  download_file "$url" "$target" || true
+  download_wan_lora "$url" "$target" || true
 done
 
 echo "Downloads complete."
